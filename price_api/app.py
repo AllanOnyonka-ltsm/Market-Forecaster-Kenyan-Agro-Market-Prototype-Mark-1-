@@ -62,24 +62,52 @@ class PredictResponse(BaseModel):
 app = FastAPI(title="Hackathon Price Prediction API")
 
 # =========================
+# HELPER: NORMALIZE INPUT
+# =========================
+def normalize_input(req: PredictRequest):
+    """Normalize user input to match training data format"""
+    
+    # Capitalize commodity (e.g., "tomatoes" -> "Tomatoes")
+    commodity = req.commodity.strip().title()
+    
+    # Capitalize pricetype (e.g., "retail" -> "Retail")
+    pricetype = req.pricetype.strip().capitalize()
+    
+    # Keep market and admin1 as-is (user should provide exact match)
+    market = req.market.strip()
+    admin1 = req.admin1.strip()
+    
+    return commodity, market, admin1, pricetype
+
+# =========================
 # HELPER: BUILD FEATURE VECTOR
 # =========================
 def build_feature_vector(req: PredictRequest):
     data = {}
 
+    # Normalize inputs
+    commodity, market, admin1, pricetype = normalize_input(req)
+    
     # Rebuild minimum core features (extend if needed)
     data["price_lag_1"] = req.previous_month_price
 
-    data["commodity"] = req.commodity
-    data["market"] = req.market
-    data["admin1"] = req.admin1
-    data["pricetype"] = req.pricetype
+    data["commodity"] = commodity
+    data["market"] = market
+    data["admin1"] = admin1
+    data["pricetype"] = pricetype
 
-    # Apply label encoding
+    # Apply label encoding with error handling
     for col in preprocess_info["categorical_columns"]:
         if col in data:
             encoder = label_encoders[col]
-            data[col] = int(encoder.transform([data[col]])[0])
+            try:
+                data[col] = int(encoder.transform([data[col]])[0])
+            except ValueError:
+                valid_values = list(encoder.classes_)
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid {col}: '{data[col]}'. Valid values: {valid_values}"
+                )
 
     # Build final vector in correct order
     final_vector = []
@@ -100,24 +128,48 @@ def rf_confidence(model, X):
     return mean, low, high, confidence
 
 # =========================
+# ROOT ENDPOINT
+# =========================
+@app.get("/")
+def root():
+    return {
+        "message": "Kenyan Agro Market Price Prediction API",
+        "endpoints": {
+            "/predict": "POST - Make price predictions",
+            "/docs": "GET - Interactive API documentation",
+            "/redoc": "GET - Alternative API documentation"
+        },
+        "example_request": {
+            "date": "2025-12-05",
+            "admin1": "Nairobi",
+            "market": "Gikomba",
+            "commodity": "cabbage",
+            "pricetype": "retail",
+            "previous_month_price": 100.0
+        },
+        "supported_commodities": list(ALLOWED_COMMODITIES)
+    }
+
+# =========================
 # MAIN ENDPOINT
 # =========================
 @app.post("/predict", response_model=PredictResponse)
 def predict(req: PredictRequest):
 
-    commodity = req.commodity.lower()
+    # Normalize and validate commodity
+    commodity_normalized = req.commodity.strip().lower()
 
-    if commodity not in ALLOWED_COMMODITIES:
+    if commodity_normalized not in ALLOWED_COMMODITIES:
         raise HTTPException(
             status_code=400,
-            detail=f"Commodity '{commodity}' not supported."
+            detail=f"Commodity '{req.commodity}' not supported. Allowed: {list(ALLOWED_COMMODITIES)}"
         )
 
     X = build_feature_vector(req)
 
     pred, lo, hi, conf = rf_confidence(model, X)
 
-    threshold = CROP_THRESHOLDS[commodity]
+    threshold = CROP_THRESHOLDS[commodity_normalized]
     unreasonable = pred > threshold
 
     note = "Prediction within normal range."
