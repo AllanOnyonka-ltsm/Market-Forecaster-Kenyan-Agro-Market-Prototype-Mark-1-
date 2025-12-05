@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import joblib
 import numpy as np
@@ -60,6 +61,15 @@ class PredictResponse(BaseModel):
 # INIT APP
 # =========================
 app = FastAPI(title="Hackathon Price Prediction API")
+
+# Add CORS middleware to allow requests from web browsers
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins - restrict this in production
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (GET, POST, OPTIONS, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
 
 # =========================
 # HELPER: NORMALIZE INPUT
@@ -153,6 +163,29 @@ def root():
 # =========================
 # MAIN ENDPOINT
 # =========================
+@app.get("/predict")
+def predict_info():
+    """GET request to /predict - shows how to use the endpoint"""
+    return {
+        "error": "Method Not Allowed",
+        "message": "This endpoint only accepts POST requests",
+        "usage": {
+            "method": "POST",
+            "url": "/predict",
+            "content_type": "application/json",
+            "example_request": {
+                "date": "2025-12-05",
+                "admin1": "Nairobi",
+                "market": "Wakulima (Nairobi)",
+                "commodity": "cabbage",
+                "pricetype": "retail",
+                "previous_month_price": 100.0
+            }
+        },
+        "interactive_docs": "/docs",
+        "supported_commodities": list(ALLOWED_COMMODITIES)
+    }
+
 @app.post("/predict", response_model=PredictResponse)
 def predict(req: PredictRequest):
 
