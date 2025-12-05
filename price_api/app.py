@@ -29,6 +29,19 @@ CROP_THRESHOLDS = {
     "tomatoes": 64
 }
 
+# Mapping for common variations and plurals
+COMMODITY_ALIASES = {
+    "onions": "onion",
+    "potato": "potatoes",
+    "irish potato": "potatoes",
+    "irish potatoes": "potatoes",
+    "tomato": "tomatoes",
+    "cabbage": "cabbage",
+    "cabbages": "cabbage",
+    "kale": "kale",
+    "kales": "kale",
+}
+
 ALLOWED_COMMODITIES = set(CROP_THRESHOLDS.keys())
 
 # =========================
@@ -75,17 +88,33 @@ app.add_middleware(
 # HELPER: NORMALIZE INPUT
 # =========================
 def normalize_input(req: PredictRequest):
-    """Normalize user input to match training data format"""
+    """Normalize user input to match training data format (case-insensitive)"""
     
-    # Capitalize commodity (e.g., "tomatoes" -> "Tomatoes")
+    # Capitalize commodity (e.g., "tomatoes" -> "Tomatoes", "TOMATOES" -> "Tomatoes")
     commodity = req.commodity.strip().title()
     
-    # Capitalize pricetype (e.g., "retail" -> "Retail")
+    # Capitalize pricetype (e.g., "retail" -> "Retail", "RETAIL" -> "Retail")
     pricetype = req.pricetype.strip().capitalize()
     
-    # Keep market and admin1 as-is (user should provide exact match)
+    # Normalize market: try to find case-insensitive match from label encoders
     market = req.market.strip()
+    encoder_market = label_encoders.get("market")
+    if encoder_market:
+        # Find case-insensitive match
+        for valid_market in encoder_market.classes_:
+            if valid_market.lower() == market.lower():
+                market = valid_market
+                break
+    
+    # Normalize admin1: try to find case-insensitive match from label encoders
     admin1 = req.admin1.strip()
+    encoder_admin1 = label_encoders.get("admin1")
+    if encoder_admin1:
+        # Find case-insensitive match
+        for valid_admin1 in encoder_admin1.classes_:
+            if valid_admin1.lower() == admin1.lower():
+                admin1 = valid_admin1
+                break
     
     return commodity, market, admin1, pricetype
 
@@ -186,16 +215,74 @@ def predict_info():
         "supported_commodities": list(ALLOWED_COMMODITIES)
     }
 
+# =========================
+# MAIN ENDPOINT
+# =========================
 @app.post("/predict", response_model=PredictResponse)
 def predict(req: PredictRequest):
+    # Fallback: If request is missing or missing fields, return dummy data and example
+    import inspect
+    from fastapi import Request
+    from fastapi.responses import JSONResponse
+    import typing
 
-    # Normalize and validate commodity
+    # Check for missing fields
+    required_fields = ["date", "admin1", "market", "commodity", "pricetype", "previous_month_price"]
+    missing_fields = []
+    example_input = {
+        "date": "2025-12-05",
+        "admin1": "Nairobi",
+        "market": "Wakulima (Nairobi)",
+        "commodity": "tomatoes",
+        "pricetype": "retail",
+        "previous_month_price": 58.2
+    }
+    example_output = {
+        "commodity": "tomatoes",
+        "market": "Wakulima (Nairobi)",
+        "date": "2025-12-05",
+        "prediction_per_kg": 163.64,
+        "unit": "kg",
+        "market_type": "retail",
+        "previous_month_price": 58.2,
+        "confidence_pct": 90.0,
+        "error_margin": "+-342.74",
+        "lower_bound": 5.0,
+        "upper_bound": 506.38,
+        "unreasonable": True,
+        "note": "\u26a0\ufe0f Unreasonable: exceeds normal threshold of 64 per kg."
+    }
+
+    # If req is None (shouldn't happen in FastAPI), or is missing fields, fallback
+    if req is None or any(getattr(req, f, None) is None for f in required_fields):
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "Missing required fields in request body.",
+                "required_fields": required_fields,
+                "example_input": example_input,
+                "example_output": example_output,
+                "message": "Please provide all required fields as shown in example_input to get a valid prediction."
+            }
+        )
+
+    # Normalize and validate commodity (with alias support for plurals)
     commodity_normalized = req.commodity.strip().lower()
+    
+    # Check if it's an alias (e.g., "onions" -> "onion")
+    if commodity_normalized in COMMODITY_ALIASES:
+        commodity_normalized = COMMODITY_ALIASES[commodity_normalized]
 
     if commodity_normalized not in ALLOWED_COMMODITIES:
-        raise HTTPException(
+        return JSONResponse(
             status_code=400,
-            detail=f"Commodity '{req.commodity}' not supported. Allowed: {list(ALLOWED_COMMODITIES)}"
+            content={
+                "error": f"Commodity '{req.commodity}' not supported.",
+                "allowed": list(ALLOWED_COMMODITIES),
+                "aliases": COMMODITY_ALIASES,
+                "note": "Plurals and common variations are automatically handled (e.g., 'onions' → 'onion')",
+                "example_input": example_input
+            }
         )
 
     X = build_feature_vector(req)
