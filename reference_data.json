@@ -1,0 +1,79 @@
+{
+  "markets": [
+    "Dagahaley (Daadab)",
+    "Dandora (Nairobi)",
+    "Eldoret town (Uasin Gishu)",
+    "Ethiopia (Kakuma)",
+    "Garissa town (Garissa)",
+    "Hagadera (Daadab)",
+    "HongKong (Kakuma)",
+    "IFO (Daadab)",
+    "Illbissil Food Market (Kajiado)",
+    "Kaanwa (Tharaka Nithi)",
+    "Kakuma 2",
+    "Kakuma 3",
+    "Kakuma 4",
+    "Kalahari (Mombasa)",
+    "Kalobeyei (Village 1)",
+    "Kalobeyei (Village 2)",
+    "Kalobeyei (Village 3)",
+    "Kangemi (Nairobi)",
+    "Karatina (Nyeri)",
+    "Kathonzweni (Makueni)",
+    "Kawangware (Nairobi)",
+    "Kibra (Nairobi)",
+    "Kibuye (Kisumu)",
+    "Kisumu",
+    "Kitengela (Kajiado)",
+    "Kitui",
+    "Kongowea (Mombasa)",
+    "Lodwar town",
+    "Lomut (West Pokot)",
+    "Makutano (West Pokot)",
+    "Marigat town (Baringo)",
+    "Mathare (Nairobi)",
+    "Mogadishu (Kakuma)",
+    "Mukuru (Nairobi)",
+    "Nairobi",
+    "Nakuru",
+    "Takaba (Mandera)",
+    "Tala Centre Market (Machakos)",
+    "Wakulima (Nairobi)",
+    "Wakulima (Nakuru)"
+  ],
+  "commodities": [
+    "Bananas",
+    "Cabbage",
+    "Kale",
+    "Onions (dry)",
+    "Potatoes (Irish)",
+    "Potatoes (Irish, red)",
+    "Potatoes (Irish, white)",
+    "Tomatoes"
+  ],
+  "admin1": [
+    "Central",
+    "Coast",
+    "Eastern",
+    "Nairobi",
+    "North Eastern",
+    "Nyanza",
+    "Rift Valley"
+  ],
+  "units": [
+    "126 KG",
+    "13 KG",
+    "50 KG",
+    "64 KG",
+    "KG",
+    "Unit"
+  ],
+  "price_types": [
+    "Retail",
+    "Wholesale"
+  ],
+  "categories": [
+    "cereals and tubers",
+    "vegetables and fruits"
+  ]
+}
