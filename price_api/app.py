@@ -6,6 +6,7 @@ from datetime import datetime
 import joblib
 import numpy as np
 import pandas as pd
+import uuid
 
 # =========================
 # LOAD ARTIFACTS
@@ -32,6 +33,9 @@ CROP_THRESHOLDS = {
 }
 
 ALLOWED_COMMODITIES = set(CROP_THRESHOLDS.keys())
+
+# Default radius for micro-market search in kilometers
+DEFAULT_MICRO_MARKET_RADIUS_KM = 50.0
 
 # =========================
 # API SCHEMA
@@ -259,7 +263,7 @@ class MicroMarketRequest(BaseModel):
     """Request schema for micro-market/localized forecasting"""
     commodity: str
     region: str
-    radius_km: Optional[float] = 50.0
+    radius_km: Optional[float] = DEFAULT_MICRO_MARKET_RADIUS_KM
     date: str
 
 class MicroMarketResponse(BaseModel):
@@ -355,6 +359,13 @@ def get_recommendations(req: RecommendationRequest):
             detail=f"Commodity '{req.commodity}' not supported. Allowed: {list(ALLOWED_COMMODITIES)}"
         )
     
+    # Validate previous_price to prevent division by zero
+    if req.previous_price <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="previous_price must be greater than 0"
+        )
+    
     # Calculate price change percentage
     price_change = ((req.predicted_price - req.previous_price) / req.previous_price) * 100
     
@@ -397,6 +408,8 @@ def get_recommendations(req: RecommendationRequest):
         confidence = "medium"
     
     # Add market-specific advice
+    # Safe to access CROP_THRESHOLDS since commodity_normalized is validated to be in ALLOWED_COMMODITIES
+    # and ALLOWED_COMMODITIES is derived from CROP_THRESHOLDS.keys()
     threshold = CROP_THRESHOLDS[commodity_normalized]
     if req.predicted_price > threshold * 0.8:
         recommendations.append(f"Price approaching threshold limit ({threshold} KES/kg)")
@@ -438,23 +451,27 @@ def get_micro_market_forecast(req: MicroMarketRequest):
     
     # Placeholder: In production, this would query a geospatial database
     # For now, we'll simulate nearby markets based on the region
+    # Using deterministic values based on commodity and region for reproducibility
+    base_price = CROP_THRESHOLDS.get(commodity_normalized, 50)
+    price_variation = 0.2  # 20% variation
+    
     nearby_markets = [
         {
             "market_name": f"{req.region} Central Market",
             "distance_km": 0.0,
-            "estimated_price": round(np.random.uniform(40, 80), 2),
+            "estimated_price": round(base_price * 0.9, 2),
             "market_type": "wholesale"
         },
         {
             "market_name": f"{req.region} Retail Hub",
             "distance_km": round(req.radius_km * 0.3, 1),
-            "estimated_price": round(np.random.uniform(45, 90), 2),
+            "estimated_price": round(base_price * 1.1, 2),
             "market_type": "retail"
         },
         {
             "market_name": f"Near {req.region} Market",
             "distance_km": round(req.radius_km * 0.6, 1),
-            "estimated_price": round(np.random.uniform(42, 85), 2),
+            "estimated_price": round(base_price * 0.95, 2),
             "market_type": "mixed"
         }
     ]
@@ -681,9 +698,9 @@ def collect_feedback(req: FeedbackRequest):
     Returns:
         FeedbackResponse confirming feedback submission
     """
-    # Generate unique feedback ID
+    # Generate unique feedback ID using UUID
     timestamp = req.timestamp or datetime.now().isoformat()
-    feedback_id = f"FB-{hash(timestamp) % 1000000:06d}"
+    feedback_id = f"FB-{str(uuid.uuid4())[:8]}"
     
     # Validate ratings if provided
     if req.accuracy_rating and not (1 <= req.accuracy_rating <= 5):
@@ -700,18 +717,18 @@ def collect_feedback(req: FeedbackRequest):
     
     # In production, this would store feedback in a database
     # For now, we'll just acknowledge receipt
-    
-    # Log feedback (placeholder - in production, save to database)
-    feedback_summary = {
-        "feedback_id": feedback_id,
-        "user_id": req.user_id or "anonymous",
-        "prediction_id": req.prediction_id,
-        "actual_price": req.actual_price,
-        "accuracy_rating": req.accuracy_rating,
-        "usefulness_rating": req.usefulness_rating,
-        "comments": req.comments,
-        "timestamp": timestamp
-    }
+    # Placeholder for database storage:
+    # feedback_summary = {
+    #     "feedback_id": feedback_id,
+    #     "user_id": req.user_id or "anonymous",
+    #     "prediction_id": req.prediction_id,
+    #     "actual_price": req.actual_price,
+    #     "accuracy_rating": req.accuracy_rating,
+    #     "usefulness_rating": req.usefulness_rating,
+    #     "comments": req.comments,
+    #     "timestamp": timestamp
+    # }
+    # db.save_feedback(feedback_summary)
     
     return {
         "feedback_id": feedback_id,
