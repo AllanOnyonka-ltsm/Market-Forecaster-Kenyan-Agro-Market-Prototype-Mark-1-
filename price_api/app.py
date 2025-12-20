@@ -219,7 +219,7 @@ def predict(req: PredictRequest):
 
     note = "Prediction within normal range."
     if unreasonable:
-        note = f"⚠️ Unreasonable: exceeds normal threshold of {threshold} per kg."
+        note = f" Unreasonable: exceeds normal threshold of {threshold} per kg."
 
     return {
         "commodity": req.commodity,
@@ -545,13 +545,13 @@ def format_for_users(req: FormatRequest):
         # WhatsApp: Can be longer, more formatted
         formatted_message = f"""📊 *Market Price Forecast*
 
-🌾 Commodity: {commodity}
-📍 Market: {market}
-📅 Date: {date}
+ Commodity: {commodity}
+ Market: {market}
+ Date: {date}
 
-💰 Predicted Price: *KES {prediction}/kg*
-📉 Previous Price: KES {req.prediction_data.get('previous_month_price', 0)}/kg
-📊 Confidence: {req.prediction_data.get('confidence_pct', 90)}%
+ Predicted Price: *KES {prediction}/kg*
+ Previous Price: KES {req.prediction_data.get('previous_month_price', 0)}/kg
+ Confidence: {req.prediction_data.get('confidence_pct', 90)}%
 
 {req.prediction_data.get('note', '')}
 

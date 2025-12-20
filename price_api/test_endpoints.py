@@ -29,15 +29,15 @@ def test_endpoint(name: str, method: str, endpoint: str, data: Dict[str, Any] = 
         print(f"Status Code: {response.status_code}")
         
         if response.status_code in [200, 201]:
-            print("✅ SUCCESS")
+            print(" SUCCESS")
             result = response.json()
             print(json.dumps(result, indent=2))
         else:
-            print("❌ FAILED")
+            print(" FAILED")
             print(response.text)
             
     except Exception as e:
-        print(f"❌ ERROR: {str(e)}")
+        print(f" ERROR: {str(e)}")
 
 def main():
     """Run all endpoint tests."""
